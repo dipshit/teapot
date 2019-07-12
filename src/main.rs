@@ -4,6 +4,7 @@ use threadpool::ThreadPool;
 
 const TEAPOT: &[u8] = b"HTTP/1.1 418 I'm a teapot\r\n\r\n";
 
+// Use a listen syscall and handle connections in a threadpool
 fn main() {
     let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
     let pool = ThreadPool::new(16);
