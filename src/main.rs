@@ -3,6 +3,10 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use threadpool::ThreadPool;
 
 const TEAPOT: &[u8] = b"HTTP/1.1 418 I'm a teapot\r\n\r\n";
+const NOTFOUND: &[u8] = b"HTTP/1.1 404 Not Found\r\n\r\n";
+const UNAVAILABLE: &[u8] = b"HTTP/1.1 503 Service Unavailable\r\n\r\n";
+
+const GET: &[u8] = b"GET / HTTP/1.1\r\n";
 
 // Use a listen syscall and handle connections in a threadpool
 fn main() {
@@ -24,8 +28,25 @@ fn main() {
 }
 
 fn handle(mut stream: TcpStream) {
-    // don't read from the socket to limit use of file descriptors
-    match stream.write(TEAPOT) {
+    // only respond to requests less than 512 bytes
+    let mut buffer = [0; 512];
+    match stream.read(&mut buffer) {
+        Ok(_) => (),
+        // respond 503 if out of file descriptors
+        Err(_) => {
+            send(UNAVAILABLE, stream);
+            return;
+        }
+    }
+    if buffer.starts_with(GET) {
+        send(TEAPOT, stream);
+    } else {
+        send(NOTFOUND, stream);
+    }
+}
+
+fn send(response: &[u8], mut stream: TcpStream) {
+    match stream.write(response) {
         Ok(_) => (),
         Err(e) => println!("{}", e),
     }
