@@ -8,6 +8,8 @@ fn main() {
     let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
     let pool = ThreadPool::new(16);
 
+    println!("Teapot starting on port 8080");
+
     for stream in listener.incoming() {
         // gracefully handle bad listen
         let stream = match stream {
