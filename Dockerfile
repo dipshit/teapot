@@ -4,7 +4,7 @@ WORKDIR /app
 COPY . .
 RUN cargo build --release
 
-FROM rust:1.36.0
+FROM rust:1.36.0-slim
 WORKDIR /app
 COPY --from=0 /app/target/release/teapot /app/teapot
 EXPOSE 8080
