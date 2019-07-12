@@ -24,11 +24,11 @@ fn main() {
         pool.execute(|| {
             handle(stream);
         });
-    }
+    } // socket closed
 }
 
 fn handle(mut stream: TcpStream) {
-    // only respond to requests less than 512 bytes
+    // only read the first 512 bytes
     let mut buffer = [0; 512];
     match stream.read(&mut buffer) {
         Ok(_) => (),
@@ -41,6 +41,8 @@ fn handle(mut stream: TcpStream) {
     if buffer.starts_with(GET) {
         send(TEAPOT, stream);
     } else {
+        // todo, find a fast way to switch on HTTP verbs without
+        // reading or parsing too much
         send(NOTFOUND, stream);
     }
 }
