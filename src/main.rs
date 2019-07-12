@@ -23,6 +23,7 @@ fn main() {
 }
 
 fn handle(mut stream: TcpStream) {
+    // don't read from the socket to limit use of file descriptors
     match stream.write(TEAPOT) {
         Ok(_) => (),
         Err(e) => println!("{}", e),
