@@ -39,12 +39,10 @@ fn handle(mut stream: TcpStream) {
         }
     }
     if buffer.starts_with(GET) {
-        send(TEAPOT, stream);
-    } else {
-        // todo, find a fast way to switch on HTTP verbs without
-        // reading or parsing too much
-        send(NOTFOUND, stream);
+        return send(TEAPOT, stream);
     }
+    // TODO find a way to only respond NOTFOUND to HTTP requests
+    send(NOTFOUND, stream);
 }
 
 fn send(response: &[u8], mut stream: TcpStream) {
@@ -52,6 +50,7 @@ fn send(response: &[u8], mut stream: TcpStream) {
         Ok(_) => (),
         Err(e) => println!("{}", e),
     }
+    // prevent TCP RST if client sent req longer than 512 bytes
     match stream.shutdown(Shutdown::Both) {
         Ok(_) => (),
         Err(e) => println!("{}", e),
