@@ -41,7 +41,8 @@ fn handle(mut stream: TcpStream) {
     if buffer.starts_with(GET) {
         return send(TEAPOT, stream);
     }
-    // TODO find a way to only respond NOTFOUND to HTTP requests
+    // issue Not Found instead of 400 Bad Request so we don't have
+    // to parse the request
     send(NOTFOUND, stream);
 }
 
