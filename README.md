@@ -4,7 +4,7 @@ A high performance `HTTP/1.1` server that responds `HTTP/1.1 418 I'm a teapot` t
 
 ### Run locally
 
-On host
+On host (linux only)
 
 ```
 cargo run

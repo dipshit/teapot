@@ -1,11 +1,16 @@
+#[macro_use]
+extern crate bitflags;
+
 use libc::{fork, getpid};
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
+mod epoll;
 
 const TEAPOT: &[u8] = b"HTTP/1.1 418 I'm a teapot\r\n\r\n";
 
 // Use a listen syscall and handle connections in a threadpool
 fn main() {
+    // backlog is 128 by default
     let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
     listener
         .set_nonblocking(true)
@@ -29,7 +34,15 @@ fn run(listener: &TcpListener) {
     unsafe {
         println!("pid {} ready", getpid());
     }
-    // accept in a loop
+    // create socket and listen with a backlog queue set
+    // epoll_ctl add socket with raw fd
+    //loop {
+    // epoll_wait for data
+    // get numfds
+    // for numfds times
+    //   if this iter is the sockfd, accept new_fd and epoll_ctl add it
+    //   else it is a stream. send teapot and epoll_ctl it
+    //}
     for stream in listener.incoming() {
         match stream {
             Ok(mut s) => respond(&mut s),
