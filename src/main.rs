@@ -1,9 +1,10 @@
 #[macro_use]
 extern crate bitflags;
 
-use libc::{fork, getpid};
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
+use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+
 mod epoll;
 
 const TEAPOT: &[u8] = b"HTTP/1.1 418 I'm a teapot\r\n\r\n";
@@ -17,71 +18,55 @@ fn main() {
         .expect("Unable to set nonblocking on listener");
     println!("Teapot starting on port 8080");
 
-    unsafe {
-        let parent_pid = getpid();
-        println!("parent is {}", parent_pid);
-        for _ in 1..16 {
-            if getpid() == parent_pid {
-                fork();
-            }
-        }
-    }
     // use epoll_create and pass it to listener
-    run(&listener);
+    let epfd = match epoll::create() {
+        Ok(epfd) => epfd,
+        Err(e) => panic!(e),
+    };
+    let mut event = epoll::Event::new(
+        epoll::Events::EPOLLIN | epoll::Events::EPOLLOUT,
+        listener.as_raw_fd() as u64,
+    );
+    epoll::ctl(
+        epfd,
+        epoll::ControlOptions::EPOLL_CTL_ADD,
+        listener.as_raw_fd(),
+        event,
+    );
+    run(&listener, epfd);
 }
 
-fn run(listener: &TcpListener) {
-    unsafe {
-        println!("pid {} ready", getpid());
-    }
-    // create socket and listen with a backlog queue set
-    // epoll_ctl add socket with raw fd
-    //loop {
-    // epoll_wait for data
-    // get numfds
-    // for numfds times
-    //   if this iter is the sockfd, accept new_fd and epoll_ctl add it
-    //   else it is a stream. send teapot and epoll_ctl it
-    //}
+fn run(listener: &TcpListener, epfd: RawFd) {
     for stream in listener.incoming() {
-        match stream {
-            Ok(mut s) => respond(&mut s),
+        let mut stream = match stream {
+            Ok(s) => s,
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                // epoll_wait until fd of listener is ready
-                // use syscall and listener as raw fd
+                // epoll wait
+                let mut events: [epoll::Event; 32] = Default::default();
+                let nfds = match epoll::wait(epfd, &mut events, 10000) {
+                    Ok(nfds) => nfds,
+                    Err(e) => panic!(e),
+                };
                 continue;
             }
-            Err(e) => println!("{}", e),
-        }
-    } // close socket
+            Err(e) => panic!(e),
+        };
+        stream
+            .set_nonblocking(true)
+            .expect("could not set stream nonblocking");
+
+        send_teapot(&stream);
+    }
 }
 
-// new data is available somewhere
-// call epoll_wait and respond to all ready fds
-fn respond(stream: &mut TcpStream) {
-    stream
-        .set_nonblocking(true)
-        .expect("Unable to set nonblocking on stream");
-
-    // block until data is ready to avoid TCP RST
-    let mut buffer = [0];
-    match stream.read(&mut buffer) {
-        Ok(_) => (),
-        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-            // epoll_wait until fd of stream is ready to read from
-            println!("read would block: {}", e);
-        }
-        Err(e) => println!("{}", e),
-    }
-
+fn send_teapot(mut stream: &TcpStream) {
     match stream.write(TEAPOT) {
         Ok(_) => (),
-        Err(e) => println!("{}", e),
+        Err(e) => panic!("{}", e),
     }
-
     // shutdown to prevent TCP RST
     match stream.shutdown(Shutdown::Both) {
         Ok(_) => (),
-        Err(e) => println!("{}", e),
+        Err(e) => panic!("{}", e),
     }
 }
