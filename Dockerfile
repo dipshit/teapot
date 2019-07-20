@@ -1,7 +1,7 @@
 FROM rust:1.36.0-slim
 
 WORKDIR /app
-
+RUN rustup toolchain install nightly && rustup default nightly
 # For faster builds only refetch when Cargo.toml or Cargo.lock changes
 # cargo fetch needs a main file before it can run, so we stub one
 RUN mkdir /app/src
